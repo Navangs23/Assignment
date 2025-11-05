@@ -1,0 +1,285 @@
+{% extends 'support/base.html' %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold text-primary mb-0">All Support Tickets</h3>
+
+        <a href="{% url 'logout' %}" class="btn btn-outline-danger">
+            <i class="bi bi-box-arrow-right"></i> Logout
+        </a>
+    </div>
+    <hr>
+
+
+        <div>
+            <div class="mb-3 d-flex align-items-center gap-2">
+    <label for="statusFilter" class="mb-0 fw-semibold">Filter by Status:</label>
+    <select id="statusFilter" class="form-select w-auto">
+        <option value="">All</option>
+        <option value="Open">Open</option>
+        <option value="In Process">In Process</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Closed">Closed</option>
+    </select>
+</div>
+            <table id="ticketsTable" class="table table-hover align-middle mb-0">
+                <thead class="table-success">
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Subject</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Created On</th>
+                        <th>Last Updated</th>
+                        <th>Attachment</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr>
+                        <td>{{ ticket.id }}</td>
+
+                        <td class="fw-semibold">{{ ticket.user.username }}</td>
+                        <td>{{ ticket.subject }}</td>
+                        <td>{{ ticket.category }}</td>
+                        <td>
+                            {% if ticket.priority == "High" %}
+                            <span class="badge bg-danger">High</span>
+                            {% elif ticket.priority == "Medium" %}
+                            <span class="badge bg-warning text-dark">Medium</span>
+                            {% else %}
+                            <span class="badge bg-success">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ticket.status == "Open" %}
+                            <span class="badge bg-warning text-dark">Open</span>
+                            {% elif ticket.status == "In Process" %}
+                            <span class="badge bg-primary">In Process</span>
+                            {% elif ticket.status == "Resolved" %}
+                            <span class="badge bg-success">Resolved</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ticket.created_at|date:"d M Y, h:i A" }}</td>
+                        <td>{{ ticket.updated_at|date:"d M Y, h:i A" }}</td>
+                        <td>
+                            {% if ticket.attachment %}
+                            <a href="{{ ticket.attachment.url }}" target="_blank" class="text-decoration-none">
+                                <i class="bi bi-paperclip"></i> View
+                            </a>
+                            {% else %}
+                            <span class="text-muted">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                data-bs-target="#viewTicketModal{{ ticket.id }}">
+                                <i class="bi bi-eye"></i> View
+                            </button>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="viewTicketModal{{ ticket.id }}" tabindex="-1"
+                        aria-labelledby="viewTicketModalLabel{{ ticket.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title" id="viewTicketModalLabel{{ ticket.id }}">
+                                        Ticket #{{ ticket.id }} - {{ ticket.subject }}
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p><strong>User:</strong> {{ ticket.user.username }}</p>
+                                    <p><strong>Priority:</strong> {{ ticket.priority }}</p>
+                                    <p><strong>Status:</strong> {{ ticket.status }}</p>
+                                    <p><strong>Category:</strong> {{ ticket.category }}</p>
+                                    <p><strong>Description:</strong><br>{{ ticket.description }}</p>
+
+                                    {% if ticket.attachment %}
+                                    <p><strong>Attachment:</strong>
+                                        <a href="{{ ticket.attachment.url }}" target="_blank" class="text-decoration-none">
+                                            {{ ticket.attachment.name|cut:"ticket_attachments/" }}
+                                        </a>
+                                    </p>
+                                    {% endif %}
+
+                                    <hr>
+                                    <form method="POST" action="{% url 'update_ticket' ticket.id %}">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <label for="response{{ ticket.id }}" class="form-label">Admin Response</label>
+                                            <textarea id="response{{ ticket.id }}" name="response" rows="6"
+                                                class="form-control ckeditor"
+                                                placeholder="Write your response...">{{ ticket.response|safe }}</textarea>
+                                            <input type="hidden" name="is_ai_generated" id="is_ai_generated{{ ticket.id }}"
+                                                value="false">
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="d-flex gap-2">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                    onclick="generateAIResponse({{ ticket.id }})">
+                                                    🤖 Generate AI Reply
+                                                </button>
+                                                <select name="status" class="form-select w-auto">
+                                                    <option value="Open" {% if ticket.status == "Open" %}selected{% endif %}>Open</option>
+                                                    <option value="In Process" {% if ticket.status == "In Process" %}selected{% endif %}>In Process</option>
+                                                    <option value="Resolved" {% if ticket.status == "Resolved" %}selected{% endif %}>Resolved</option>
+                                                    <option value="Closed" {% if ticket.status == "Closed" %}selected{% endif %}>Closed</option>
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">Update Ticket</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            No tickets available.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+</div>
+
+<script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll('.ckeditor').forEach(el => {
+            if (!CKEDITOR.instances[el.id]) {
+                CKEDITOR.replace(el.id, {
+                    height: 200,
+                    removeButtons: 'PasteFromWord'
+                });
+            }
+        });
+
+        setTimeout(() => {
+            for (const [id, editor] of Object.entries(CKEDITOR.instances)) {
+                editor.on('change', function () {
+                    const ticketId = id.replace("response", "");
+                    const aiFlag = document.getElementById(`is_ai_generated${ticketId}`);
+                    if (aiFlag) aiFlag.value = "false";
+                });
+            }
+        }, 1000);
+
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('show.bs.modal', function () {
+                const ticketId = modal.id.replace('viewTicketModal', '');
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                fetch(`/support/tickets/mark_in_process/${ticketId}/`, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken
+                    },
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const rowBadge = modal.closest('tr')?.querySelector('.badge');
+                        if (rowBadge && data.status === "In Process") {
+                            rowBadge.className = "badge bg-primary";
+                            rowBadge.textContent = "In Process";
+                        }
+                    } else {
+                        console.warn("Failed to update status:", data.error);
+                    }
+                })
+                .catch(err => console.error("Error updating status:", err));
+            });
+        });
+    });
+</script>
+
+<script>
+    function generateAIResponse(ticketId) {
+        const editor = CKEDITOR.instances[`response${ticketId}`];
+        const aiFlag = document.getElementById(`is_ai_generated${ticketId}`);
+
+        if (!editor) {
+            console.error(`CKEditor instance not found for response${ticketId}`);
+            return;
+        }
+
+        editor.setData("<p><em>🤖 Generating AI reply...</em></p>");
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(`/support/tickets/ai_reply/${ticketId}/`, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken
+            },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                editor.setData(data.reply);
+                aiFlag.value = "true";
+            } else {
+                editor.setData(`<p>⚠️ Failed to generate AI reply: ${data.error}</p>`);
+                aiFlag.value = "false";
+            }
+        })
+        .catch(err => {
+            editor.setData(`<p>⚠️ Error: ${err.message}</p>`);
+            aiFlag.value = "false";
+        });
+    }
+</script>
+
+<script>
+    document.addEventListener("submit", function() {
+        for (const [id, editor] of Object.entries(CKEDITOR.instances)) {
+            editor.updateElement();
+        }
+    });
+</script>
+
+<script>
+$(document).ready(function() {
+    var table = $('#ticketsTable').DataTable({
+        "order": [[0, "desc"]],
+        "pageLength": 10,
+        "lengthMenu": [5, 10, 25, 50, 100],
+        "columnDefs": [
+            { "orderable": false, "targets": [8, 9] }
+        ],
+
+    });
+
+    // Status filter
+    $('#statusFilter').on('change', function () {
+        var selected = $(this).val();
+        if (selected) {
+            // Filter by status column (index 5)
+            table.column(5).search('^' + selected + '$', true, false).draw();
+        } else {
+            // Clear filter
+            table.column(5).search('').draw();
+        }
+    });
+});
+
+</script>
+
+
+{% endblock %}
